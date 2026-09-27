@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Colored Dice</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    color: #ffffff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  h1 { font-size: 1.6rem; margin: 10px 0 4px; text-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+  .subtitle { color: rgba(255,255,255,0.75); font-size: 0.85rem; margin-bottom: 20px; }
+
+  /* ===== Key gate ===== */
+  #gate {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 420px;
+    margin: 40px auto 0;
+    padding: 30px 24px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 20px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  }
+  #gate h2 { font-size: 1.3rem; margin-bottom: 6px; }
+  #gate p  { color: rgba(255,255,255,0.7); font-size: 0.85rem; margin-bottom: 20px; text-align: center; }
+  #keyInput {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 1rem;
+    font-family: ui-monospace, "Courier New", monospace;
+    letter-spacing: 1.5px;
+    text-align: center;
+    text-transform: uppercase;
+    border: 2px solid rgba(255,255,255,0.3);
+    background: rgba(0,0,0,0.3);
+    color: #ffffff;
+    border-radius: 10px;
+    outline: none;
+    transition: border-color 0.15s;
+    margin-bottom: 14px;
+  }
+  #keyInput:focus { border-color: #8b5cf6; }
+  #keyInput::placeholder { color: rgba(255,255,255,0.35); text-transform: none; }
+  #gateBtn {
+    width: 100%;
+    padding: 14px;
+    font-size: 1rem;
+    font-weight: 700;
+    background: #8b5cf6;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+    letter-spacing: 0.5px;
+  }
+  #gateBtn:hover { background: #7c3aed; }
+  #gateBtn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,0.2); }
+  #gateMsg {
+    margin-top: 14px;
+    font-size: 0.85rem;
+    min-height: 20px;
+    color: #fca5a5;
+    text-align: center;
+    font-weight: 600;
+  }
+  #gateMsg.ok { color: #86efac; }
+
+  /* ===== Game ===== */
+  #game { display: none; flex-direction: column; align-items: center; width: 100%; }
+  #game.unlocked { display: flex; }
+
+  .score {
+    display: flex; gap: 28px; margin-bottom: 20px;
+    background: rgba(0,0,0,0.2);
+    padding: 10px 24px; border-radius: 999px;
+    font-size: 0.9rem;
+  }
+  .score strong { font-size: 1.1rem; }
+
+  .dice-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .die-slot {
+    width: 76px; height: 76px;
+    background: #ffffff;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.25);
+    transition: background 0.25s ease, transform 0.15s;
+    position: relative;
+  }
+  .die-slot::after {
+    content: "";
+    width: 16px; height: 16px;
+    background: #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  }
+  .die-slot.empty::after { background: #cbd5e1; }
+  .die-slot.rolling { animation: slot-shake 0.3s ease-in-out infinite; }
+  @keyframes slot-shake {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50%      { transform: translateY(-4px) rotate(3deg); }
+  }
+  .die-slot.correct { outline: 3px solid #22c55e; outline-offset: 3px; }
+  .die-slot.wrong   { outline: 3px solid #ef4444; outline-offset: 3px; }
+
+  .color-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+    padding: 10px 14px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 16px;
+  }
+  .color-btn {
+    width: 52px; height: 52px;
+    border-radius: 12px;
+    border: 3px solid rgba(255,255,255,0.9);
+    cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.15s;
+    position: relative;
+  }
+  .color-btn:hover:not(:disabled) {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.35);
+  }
+  .color-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .color-btn::after {
+    content: "";
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px; height: 12px;
+    background: #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  }
+
+  .controls { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; justify-content: center; }
+  .btn {
+    padding: 12px 28px;
+    font-size: 1rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+    letter-spacing: 0.5px;
+    color: white;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+  }
+  .btn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,0.2); }
+  .btn:disabled {
+    background: rgba(255,255,255,0.15) !important;
+    cursor: not-allowed;
+    color: rgba(255,255,255,0.4);
+    box-shadow: none;
+  }
+  .btn-predict { background: #8b5cf6; }
+  .btn-predict:hover:not(:disabled) { background: #7c3aed; }
+  .btn-roll { background: #f97316; }
+  .btn-roll:hover:not(:disabled) { background: #ea580c; }
+  .btn-reset { background: #475569; padding: 12px 18px; font-size: 0.85rem; }
+  .btn-reset:hover { background: #334155; }
+
+  .banner {
+    min-height: 60px;
+    padding: 14px 22px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 8px;
+    background: rgba(0,0,0,0.25);
+    color: rgba(255,255,255,0.85);
+    width: 100%;
+    max-width: 460px;
+    transition: background 0.2s;
+    margin-bottom: 20px;
+    line-height: 1.4;
+    flex-wrap: wrap;
+  }
+  .banner.win  { background: #16a34a; }
+  .banner.lose { background: #dc2626; }
+  .banner.predict { background: #7c3aed; }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.15);
+    font-weight: 700;
+    font-size: 0.85rem;
+  }
+  .chip .dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.7);
+  }
+
+  .disclaimer {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.6);
+    text-align: center;
+    max-width: 460px;
+    line-height: 1.5;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+  <!-- ===== KEY GATE ===== -->
+  <div id="gate">
+    <h2>🔒 Enter License Key</h2>
+    <p>Enter your key to unlock Colored Dice</p>
+    <input id="keyInput" type="text" placeholder="DICE-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" />
+    <button id="gateBtn">Unlock</button>
+    <div id="gateMsg"></div>
+  </div>
+
+  <!-- ===== GAME (hidden until key is valid) ===== -->
+  <div id="game">
+    <h1>Colored Dice</h1>
+    <p class="subtitle">Fill 4 dice, get a 2-color prediction, then roll</p>
+
+    <div class="score">
+      <div>You: <strong id="youScore">0</strong></div>
+      <div>Predictor: <strong id="predScore">0</strong></div>
+    </div>
+
+    <div class="dice-row" id="diceRow">
+      <div class="die-slot empty"></div>
+      <div class="die-slot empty"></div>
+      <div class="die-slot empty"></div>
+      <div class="die-slot empty"></div>
+    </div>
+
+    <div class="color-row" id="colorRow">
+      <button class="color-btn" data-color="#f97316" data-name="Orange" style="background:#f97316" title="Orange"></button>
+      <button class="color-btn" data-color="#9333ea" data-name="Purple" style="background:#9333ea" title="Purple"></button>
+      <button class="color-btn" data-color="#2563eb" data-name="Blue"   style="background:#2563eb" title="Blue"></button>
+      <button class="color-btn" data-color="#facc15" data-name="Yellow" style="background:#facc15" title="Yellow"></button>
+      <button class="color-btn" data-color="#22c55e" data-name="Green"  style="background:#22c55e" title="Green"></button>
+      <button class="color-btn" data-color="#ef4444" data-name="Red"    style="background:#ef4444" title="Red"></button>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-predict" id="predictBtn" disabled>Predict</button>
+      <button class="btn btn-roll" id="rollBtn" disabled>Roll</button>
+      <button class="btn btn-reset" id="resetBtn">Reset</button>
+    </div>
+
+    <div class="banner" id="banner">Tap a color to fill the dice</div>
+
+    <p class="disclaimer">
+      For fun only. The prediction is 100% random — no tool can predict a fair dice roll.
+    </p>
+  </div>
+
+<script>
+  /* =====================================================
+     VALID LICENSE KEYS (100 lifetime keys)
+     ===================================================== */
+  const VALID_KEYS = [
+    "DICE-7K2M-9XP4-QA3F","DICE-B8N1-4RT6-WZ9C","DICE-M3P7-6YV2-XK5D","DICE-T9R4-2LQ8-JH6N","DICE-Y5W1-8DP3-VB7Z",
+    "DICE-K4F6-3NM9-XR2T","DICE-Q8H2-5JZ7-LP4V","DICE-N6C3-9WD1-FK8M","DICE-R2V7-4XH6-QB3J","DICE-P9L5-1YT8-MN4D",
+    "DICE-Z3D8-6KF2-WQ7R","DICE-H7M4-5BP9-XN1C","DICE-J2X6-8RV3-LQ9F","DICE-W5N9-3CZ7-KD2P","DICE-F8Q1-7LM4-VB6T",
+    "DICE-C4K7-2NH5-XR9J","DICE-L6B3-9DW8-QF1M","DICE-V9P2-4JK6-ZN7H","DICE-X1R5-8MT3-BQ4L","DICE-M7D4-6HV9-KP2N",
+    "DICE-B3N8-1QF5-XL7R","DICE-T6J2-9WK4-VD8M","DICE-Q4L7-3NB1-HX5F","DICE-K9V3-7RM6-JD2P","DICE-R5F1-8QN4-LB9T",
+    "DICE-N2H6-4XK7-WM3J","DICE-P8D5-1LV9-QR6C","DICE-W4M2-7JF3-XN8B","DICE-Z7Q9-5BK1-LD4H","DICE-C3R6-8NV2-MP7J",
+    "DICE-H9L4-2XW5-QF1N","DICE-J5B7-6DK3-RM9V","DICE-F2N8-4QP1-XL6T","DICE-V7K3-9HJ5-WB2M","DICE-L4X1-7RN6-QD8P",
+    "DICE-M8Q5-3BV9-KF2J","DICE-B6R2-1LW4-XN7H","DICE-T3J9-8MK5-VP1D","DICE-Q7N4-5XB2-LR6F","DICE-K1V8-9DQ3-JM7P",
+    "DICE-R6L3-4NF1-XB9W","DICE-N9H5-2QK7-MD4J","DICE-P4X6-8RV1-LB3T","DICE-W2M7-5JD9-QN6F","DICE-Z8Q1-3BK4-XL5H",
+    "DICE-C5R9-7NV2-MP8J","DICE-H3L6-1XW4-QD7N","DICE-J8B2-6DK5-RM1V","DICE-F7N3-4QP9-XL2T","DICE-V4K8-9HJ1-WB6M",
+    "DICE-L9X5-7RN3-QD1P","DICE-M2Q6-3BV8-KF4J","DICE-B7R1-5LW9-XN3H","DICE-T4J8-1MK6-VP9D","DICE-Q2N7-8XB4-LR1F",
+    "DICE-K6V3-9DQ8-JM2P","DICE-R1L9-4NF6-XB7W","DICE-N8H4-2QK1-MD5J","DICE-P3X7-8RV5-LB2T","DICE-W9M1-5JD6-QN4F",
+    "DICE-Z2Q8-3BK7-XL9H","DICE-C6R4-7NV1-MP5J","DICE-H1L9-2XW8-QD3N","DICE-J7B5-6DK2-RM4V","DICE-F4N1-8QP7-XL3T",
+    "DICE-V2K6-9HJ4-WB8M","DICE-L7X3-1RN9-QD2P","DICE-M5Q1-3BV7-KF6J","DICE-B9R4-5LW2-XN1H","DICE-T7J3-8MK6-VP4D",
+    "DICE-Q5N2-4XB9-LR7F","DICE-K3V7-1DQ5-JM9P","DICE-R8L6-4NF2-XB5W","DICE-N4H1-9QK3-MD7J","DICE-P6X9-2RV8-LB1T",
+    "DICE-W7M3-5JD4-QN9F","DICE-Z4Q6-8BK2-XL7H","DICE-C9R1-3NV5-MP2J","DICE-H5L8-6XW3-QD1N","DICE-J1B4-7DK9-RM6V",
+    "DICE-F9N2-3QP8-XL5T","DICE-V6K4-1HJ7-WB3M","DICE-L2X8-9RN5-QD4P","DICE-M9Q3-6BV1-KF7J","DICE-B4R7-2LW5-XN9H",
+    "DICE-T1J6-8MK3-VP7D","DICE-Q9N5-4XB1-LR3F","DICE-K7V2-1DQ8-JM4P","DICE-R3L8-9NF6-XB1W","DICE-N1H7-5QK4-MD9J",
+    "DICE-P5X2-8RV6-LB7T","DICE-W8M4-3JD1-QN5F","DICE-Z6Q3-8BK9-XL2H","DICE-C2R7-4NV1-MP6J","DICE-H4L8-2XW5-QD9N",
+    "DICE-J3B9-7DK1-RM4V","DICE-F6N5-1QP8-XL3T","DICE-V8K2-4HJ6-WB1M","DICE-L3X7-9RN2-QD5P","DICE-M6Q4-1BV9-KF3J"
+  ];
+
+  /* =====================================================
+     KEY GATE
+     ===================================================== */
+  const gate       = document.getElementById('gate');
+  const game       = document.getElementById('game');
+  const keyInput   = document.getElementById('keyInput');
+  const gateBtn    = document.getElementById('gateBtn');
+  const gateMsg    = document.getElementById('gateMsg');
+
+  // If the browser already unlocked with a valid key, skip the gate
+  const SAVED_KEY = localStorage.getItem('cdice_key');
+  if (SAVED_KEY && VALID_KEYS.includes(SAVED_KEY)) {
+    unlock();
+  }
+
+  function unlock() {
+    gate.style.display = 'none';
+    game.classList.add('unlocked');
+  }
+
+  function tryUnlock() {
+    const raw = keyInput.value.trim().toUpperCase();
+    if (!raw) {
+      gateMsg.className = '';
+      gateMsg.textContent = 'Please enter a key.';
+      return;
+    }
+    if (VALID_KEYS.includes(raw)) {
+      gateMsg.className = 'ok';
+      gateMsg.textContent = '✅ Key accepted! Unlocking...';
+      localStorage.setItem('cdice_key', raw);
+      setTimeout(unlock, 500);
+    } else {
+      gateMsg.className = '';
+      gateMsg.textContent = '❌ Invalid key. Try again.';
+      keyInput.select();
+    }
+  }
+
+  gateBtn.addEventListener('click', tryUnlock);
+  keyInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') tryUnlock();
+  });
+
+  /* =====================================================
+     GAME LOGIC
+     ===================================================== */
+  const ALL_COLORS = [
+    { color: '#f97316', name: 'Orange' },
+    { color: '#9333ea', name: 'Purple' },
+    { color: '#2563eb', name: 'Blue'   },
+    { color: '#facc15', name: 'Yellow' },
+    { color: '#22c55e', name: 'Green'  },
+    { color: '#ef4444', name: 'Red'    },
+  ];
+
+  const predictBtn = document.getElementById('predictBtn');
+  const rollBtn    = document.getElementById('rollBtn');
+  const resetBtn   = document.getElementById('resetBtn');
+  const banner     = document.getElementById('banner');
+  const youScoreEl = document.getElementById('youScore');
+  const predScoreEl= document.getElementById('predScore');
+
+  const dieSlots  = Array.from(document.querySelectorAll('.die-slot'));
+  const colorBtns = Array.from(document.querySelectorAll('.color-btn'));
+
+  let pickedColors = [null, null, null, null];
+  let prediction   = null;
+  let youScore = 0, predScore = 0;
+
+  function randomInt(n) {
+    const buf = new Uint32Array(1);
+    const max = Math.floor(0xFFFFFFFF / n) * n;
+    let v;
+    do { crypto.getRandomValues(buf); v = buf[0]; } while (v >= max);
+    return v % n;
+  }
+
+  function nextEmptyIndex() {
+    return pickedColors.findIndex(c => c === null);
+  }
+
+  function renderSlots() {
+    dieSlots.forEach((slot, i) => {
+      const pick = pickedColors[i];
+      slot.classList.remove('empty','correct','wrong');
+      if (pick) {
+        slot.style.background = pick.color;
+      } else {
+        slot.classList.add('empty');
+        slot.style.background = '#ffffff';
+      }
+    });
+    updateButtons();
+  }
+
+  function updateButtons() {
+    const full = pickedColors.every(c => c !== null);
+    const inRound = prediction !== null;
+
+    if (!full) {
+      predictBtn.disabled = true;
+      rollBtn.disabled = true;
+      banner.className = 'banner';
+      banner.textContent = 'Tap a color to fill the dice';
+    } else if (full && !inRound) {
+      predictBtn.disabled = false;
+      rollBtn.disabled = true;
+      banner.className = 'banner';
+      banner.textContent = 'Click Predict when ready';
+    } else {
+      predictBtn.disabled = true;
+      rollBtn.disabled = false;
+    }
+
+    colorBtns.forEach(b => b.disabled = full || inRound);
+  }
+
+  colorBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = nextEmptyIndex();
+      if (idx === -1) return;
+      pickedColors[idx] = { color: btn.dataset.color, name: btn.dataset.name };
+      renderSlots();
+    });
+  });
+
+  predictBtn.addEventListener('click', () => {
+    if (!pickedColors.every(c => c !== null)) return;
+
+    const pool = [0,1,2,3,4,5];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = randomInt(i + 1);
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    prediction = [ALL_COLORS[pool[0]], ALL_COLORS[pool[1]]];
+
+    banner.className = 'banner predict';
+    banner.innerHTML = `🔮 Predictor says: ${prediction.map(p =>
+      `<span class="chip"><span class="dot" style="background:${p.color}"></span>${p.name}</span>`
+    ).join(' ')}`;
+
+    updateButtons();
+  });
+
+  rollBtn.addEventListener('click', () => {
+    if (!prediction) return;
+
+    predictBtn.disabled = true;
+    rollBtn.disabled = true;
+    colorBtns.forEach(b => b.disabled = true);
+
+    const flicker = setInterval(() => {
+      dieSlots.forEach(slot => {
+        const r = ALL_COLORS[randomInt(6)];
+        slot.style.background = r.color;
+      });
+    }, 70);
+
+    setTimeout(() => {
+      clearInterval(flicker);
+
+      const rolled = dieSlots.map(() => ALL_COLORS[randomInt(6)]);
+      dieSlots.forEach((slot, i) => {
+        slot.style.background = rolled[i].color;
+      });
+
+      const rolledNames = rolled.map(r => r.name);
+      const hits = prediction.filter(p => rolledNames.includes(p.name)).length;
+      const win = hits === 2;
+
+      dieSlots.forEach((slot, i) => {
+        if (prediction.some(p => p.name === rolled[i].name)) {
+          slot.classList.add('correct');
+        } else {
+          slot.classList.add('wrong');
+        }
+      });
+
+      if (win) {
+        youScore++;
+        banner.className = 'banner win';
+        banner.innerHTML = `✅ Both predicted colors showed! (+1 You)`;
+      } else {
+        predScore++;
+        banner.className = 'banner lose';
+        banner.innerHTML = `❌ Only ${hits} of 2 predicted colors showed. (+1 Predictor)`;
+      }
+      youScoreEl.textContent = youScore;
+      predScoreEl.textContent = predScore;
+
+      prediction = null;
+      pickedColors = [null, null, null, null];
+      setTimeout(renderSlots, 1400);
+
+    }, 700);
+  });
+
+  resetBtn.addEventListener('click', () => {
+    pickedColors = [null, null, null, null];
+    prediction = null;
+    youScore = 0;
+    predScore = 0;
+    youScoreEl.textContent = 0;
+    predScoreEl.textContent = 0;
+    renderSlots();
+  });
+
+  renderSlots();
+</script>
+</body>
+</html>
